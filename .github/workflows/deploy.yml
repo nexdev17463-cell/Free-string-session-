@@ -3,7 +3,7 @@ name: 🚀 Nexus String Bot — Deploy
 on:
   push:
     branches: [main, master]
-  workflow_dispatch:        # manual trigger from Actions tab
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -19,34 +19,20 @@ jobs:
       MUST_JOIN:    ${{ secrets.MUST_JOIN }}
 
     steps:
-      # ── 1. Checkout ────────────────────────────────────────
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Python setup ────────────────────────────────────
       - name: 🐍 Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: pip
 
-      # ── 3. Install deps ────────────────────────────────────
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 4. Patch pyromod KeyError bug ──────────────────────
-      - name: 🔧 Patch pyromod listeners KeyError
-        run: |
-          PYROMOD_CLIENT=$(python -c "import pyromod.listen.client as m; print(m.__file__)" 2>/dev/null | tail -1)
-          echo "Patching: $PYROMOD_CLIENT"
-          sed -i \
-            's/for listener in self\.listeners\[listener_type\]/for listener in self.listeners.get(listener_type, [])/' \
-            "$PYROMOD_CLIENT"
-          echo "✅ Patch applied"
-
-      # ── 5. Validate config ─────────────────────────────────
       - name: 🔍 Validate secrets
         run: |
           python - <<'PYEOF'
@@ -59,6 +45,5 @@ jobs:
           print("✅ All required secrets are present.")
           PYEOF
 
-      # ── 6. Launch bot ──────────────────────────────────────
       - name: ⚡ Start Nexus String Bot
         run: python main.py
