@@ -3,8 +3,8 @@ import time
 import logging
 import asyncio
 
-from pyromod import Client                          # pyromod>=1.5: Client directly
-from pyrogram import idle
+from pyrogram import Client, idle
+from pyromod import listen                          # 0.3.4 style side-effect import
 from pyrogram.errors import ApiIdInvalid, ApiIdPublishedFlood, AccessTokenInvalid
 
 logging.basicConfig(
