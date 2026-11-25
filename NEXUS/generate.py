@@ -9,8 +9,9 @@ from asyncio import TimeoutError
 import config
 from NEXUS import ui
 
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup
+from pyromod import Client                          # pyromod>=1.5
+from pyrogram import filters
+from pyrogram.types import Message
 from pyrogram.errors import (
     ApiIdInvalid, PhoneNumberInvalid, PhoneCodeInvalid,
     PhoneCodeExpired, SessionPasswordNeeded, PasswordHashInvalid,
@@ -28,7 +29,12 @@ from telethon.errors import (
 
 SUPPORT_LINK = "[ɴᴇxᴜꜱ ꜱᴜᴘᴘᴏʀᴛ](https://t.me/PURVI_SUPPORT)"
 
-async def _cancelled(msg: Message) -> bool:
+async def _ask(bot: Client, uid: int, text: str, timeout: int = 300) -> Message:
+    """Send a prompt and wait for the user's reply via pyromod listen."""
+    await bot.send_message(uid, text)
+    return await bot.listen(uid, filters=filters.text, timeout=timeout)
+
+async def _cancelled(msg: Message, bot: Client) -> bool:
     """Returns True and notifies if user sent /cancel or any other command."""
     txt = msg.text or ""
     if txt.startswith("/cancel") or txt.startswith("/restart"):
@@ -60,17 +66,17 @@ async def generate_session(
 
     # ── Step 1 · API_ID ──────────────────────────────────────
     try:
-        api_id_msg = await bot.ask(uid, ui.prompt_api_id(lib), filters=filters.text, timeout=300)
+        api_id_msg = await _ask(bot, uid, ui.prompt_api_id(lib), timeout=300)
     except TimeoutError:
         await bot.send_message(uid, ui.ERR_TIMEOUT, reply_markup=ui.RETRY_BUTTON)
         return
 
-    if await _cancelled(api_id_msg):
+    if await _cancelled(api_id_msg, bot):
         return
 
     if api_id_msg.text.strip() == "/skip":
-        api_id   = config.API_ID
-        api_hash = config.API_HASH
+        api_id    = config.API_ID
+        api_hash  = config.API_HASH
         skip_keys = True
     else:
         try:
@@ -80,25 +86,25 @@ async def generate_session(
             return
         skip_keys = False
 
-    # ── Step 2 · API_HASH (skip if /skip) ───────────────────
+    # ── Step 2 · API_HASH ────────────────────────────────────
     if not skip_keys:
         try:
-            api_hash_msg = await bot.ask(uid, ui.prompt_api_hash(), filters=filters.text, timeout=300)
+            api_hash_msg = await _ask(bot, uid, ui.prompt_api_hash(), timeout=300)
         except TimeoutError:
             await bot.send_message(uid, ui.ERR_TIMEOUT, reply_markup=ui.RETRY_BUTTON)
             return
-        if await _cancelled(api_hash_msg):
+        if await _cancelled(api_hash_msg, bot):
             return
         api_hash = api_hash_msg.text.strip()
 
     # ── Step 3 · Phone / Bot token ──────────────────────────
     prompt = ui.prompt_bot_token() if is_bot else ui.prompt_phone()
     try:
-        cred_msg = await bot.ask(uid, prompt, filters=filters.text, timeout=300)
+        cred_msg = await _ask(bot, uid, prompt, timeout=300)
     except TimeoutError:
         await bot.send_message(uid, ui.ERR_TIMEOUT, reply_markup=ui.RETRY_BUTTON)
         return
-    if await _cancelled(cred_msg):
+    if await _cancelled(cred_msg, bot):
         return
     credential = cred_msg.text.strip()
 
@@ -106,11 +112,20 @@ async def generate_session(
     if telethon:
         client = TelegramClient(StringSession(), api_id, api_hash)
     elif is_bot:
-        client = Client("nexus_bot_session", api_id=api_id, api_hash=api_hash,
-                        bot_token=credential, in_memory=True)
+        client = Client(
+            "nexus_bot_session",
+            api_id=api_id,
+            api_hash=api_hash,
+            bot_token=credential,
+            in_memory=True,
+        )
     else:
-        client = Client("nexus_user_session", api_id=api_id, api_hash=api_hash,
-                        in_memory=True)
+        client = Client(
+            "nexus_user_session",
+            api_id=api_id,
+            api_hash=api_hash,
+            in_memory=True,
+        )
 
     await client.connect()
 
@@ -136,12 +151,12 @@ async def generate_session(
     # ── OTP ──────────────────────────────────────────────────
     if not is_bot:
         try:
-            otp_msg = await bot.ask(uid, ui.prompt_otp(), filters=filters.text, timeout=600)
+            otp_msg = await _ask(bot, uid, ui.prompt_otp(), timeout=600)
         except TimeoutError:
             await bot.send_message(uid, ui.ERR_TIMEOUT, reply_markup=ui.RETRY_BUTTON)
             await client.disconnect()
             return
-        if await _cancelled(otp_msg):
+        if await _cancelled(otp_msg, bot):
             await client.disconnect()
             return
 
@@ -163,12 +178,12 @@ async def generate_session(
         except (SessionPasswordNeeded, SessionPasswordNeededError):
             # ── 2FA ─────────────────────────────────────────
             try:
-                tfa_msg = await bot.ask(uid, ui.prompt_2fa(), filters=filters.text, timeout=300)
+                tfa_msg = await _ask(bot, uid, ui.prompt_2fa(), timeout=300)
             except TimeoutError:
                 await bot.send_message(uid, ui.ERR_TIMEOUT, reply_markup=ui.RETRY_BUTTON)
                 await client.disconnect()
                 return
-            if await _cancelled(tfa_msg):
+            if await _cancelled(tfa_msg, bot):
                 await client.disconnect()
                 return
             try:
