@@ -39,7 +39,7 @@ jobs:
       # ── 4. Patch pyromod KeyError bug ──────────────────────
       - name: 🔧 Patch pyromod listeners KeyError
         run: |
-          PYROMOD_CLIENT=$(python -c "import pyromod.listen.client as m; print(m.__file__)")
+          PYROMOD_CLIENT=$(python -c "import pyromod.listen.client as m; print(m.__file__)" 2>/dev/null | tail -1)
           echo "Patching: $PYROMOD_CLIENT"
           sed -i \
             's/for listener in self\.listeners\[listener_type\]/for listener in self.listeners.get(listener_type, [])/' \
