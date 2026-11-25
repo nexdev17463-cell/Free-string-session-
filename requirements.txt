@@ -1,5 +1,5 @@
 pyrofork
-pyromod==0.3.4
+pyromod>=1.5
 TgCrypto
 telethon==1.26.1
 motor>=3.1.1
